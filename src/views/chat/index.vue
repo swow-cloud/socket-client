@@ -10,6 +10,7 @@
   </PageWrapper>
 </template>
 <script>
+
   import { PageWrapper } from '/@/components/Page';
   import { ChatWindow } from 'vue-advanced-chat';
   import 'vue-advanced-chat/dist/vue-advanced-chat.css';
