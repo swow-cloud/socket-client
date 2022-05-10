@@ -1,75 +1,51 @@
 <template>
-  <PageWrapper title="聊天">
+  <PageWrapper title="WebSocket 示例">
     <div class="flex">
       <div class="w-1/3 bg-white p-4">
-        <div class="flex items-stretch">
-          <div>
-            <a-input-search
-                v-model:value="value"
-                placeholder="搜索好友或群组"
-                style="width: 200px;border-radius:25px"
-                @search="onSearch"
-            />
-          </div>
+        <div class="flex items-center">
+          <span class="text-lg font-medium mr-4"> 连接状态: </span>
+          <Tag :color="getTagColor">{{ status }}</Tag>
+        </div>
+        <hr class="my-4" />
 
-          <div>
-            <UserAddOutlined :style="{fontSize: '31px', color: 'green', margin: '0px 0px 0px 15px'}"/>
-          </div>
-        </div>
         <div class="flex">
+          <a-input v-model:value="server" disabled>
+            <template #addonBefore> 服务地址 </template>
+          </a-input>
+          <a-button :type="getIsOpen ? 'danger' : 'primary'" @click="toggle">
+            {{ getIsOpen ? '关闭连接' : '开启连接' }}
+          </a-button>
         </div>
-        <p class="text-xs font-medium mt-4">消息列表({{ nums }})</p>
-        <div class="flex">
-          <template></template>
-          <a-list
-              class="demo-loadmore-list"
-              :loading="loading"
-              item-layout="horizontal"
-              :data-source="dataList"
-          >
-            <template #loadMore>
-              <div :style="{ textAlign: 'center', marginTop: '12px', height: '32px', lineHeight: '32px' }">
-                <a-spin v-if="loadingMore"/>
-                <a-button v-else @click="loadMore">加载更多</a-button>
-              </div>
-            </template>
-            <template #renderItem="{ item }">
-              <a-list-item>
-                <div class="flex flex-wrap">
-                  <a-list-item-meta>
-                    <template #title>
-                      <div class="flex flex-nowrap">
-                        <div>
-                          <a href="https://www.antdv.com/">{{ item.name.last }}</a>
-                        </div>
-                        <div style="margin-left:5px">
-                          <a-tag color="pink">BOT</a-tag>
-                        </div>
-                      </div>
-                    </template>
-                    <template #avatar>
-                      <div class="grid md:grid-flow-col">
-                        <a-avatar src="https://zos.alipayobjects.com/rmsportal/ODTLcjxAfvqbxHnVXCYX.png"/>
-                      </div>
-                    </template>
-                  </a-list-item-meta>
-                  <div style="margin-top:15px;" class="grid md:grid-flow-col">
-                    <span class="text-left">[在线]</span>
-                    <span class="truncate">Lorem ipsum{{randomRange(10,36)}} </span>
-                  </div>
-                </div>
-              </a-list-item>
-            </template>
-          </a-list>
-        </div>
+        <p class="text-lg font-medium mt-4">设置</p>
+        <hr class="my-4" />
+
+        <InputTextArea
+          placeholder="需要发送到服务器的内容"
+          :disabled="!getIsOpen"
+          v-model:value="sendValue"
+          allowClear
+        />
+
+        <a-button type="primary" block class="mt-4" :disabled="!getIsOpen" @click="handlerSend">
+          发送
+        </a-button>
       </div>
 
       <div class="w-2/3 bg-white ml-4 p-4">
         <span class="text-lg font-medium mr-4"> 消息记录: </span>
-        <hr class="my-4"/>
+        <hr class="my-4" />
 
         <div class="max-h-80 overflow-auto">
           <ul>
+            <li v-for="item in getList" class="mt-2" :key="item.time">
+              <div class="flex items-center">
+                <span class="mr-2 text-primary font-medium">收到消息:</span>
+                <span>{{ formatToDateTime(item.time) }}</span>
+              </div>
+              <div>
+                {{ item.res }}
+              </div>
+            </li>
           </ul>
         </div>
       </div>
@@ -77,56 +53,76 @@
   </PageWrapper>
 </template>
 <script lang="ts">
-import {PageWrapper} from '/@/components/Page';
-import {defineComponent, ref} from 'vue';
-import {UserAddOutlined} from '@ant-design/icons-vue';
-import {useLoadMore} from 'vue-request';
+  import { defineComponent, reactive, watchEffect, computed, toRefs } from 'vue';
+  import { Tag, Input } from 'ant-design-vue';
+  import { PageWrapper } from '/@/components/Page';
+  import { useWebSocket } from '@vueuse/core';
+  import { formatToDateTime } from '/@/utils/dateUtil';
 
-const getFakeData = () => `https://randomuser.me/api/?results=5&inc=name,gender,email,nat&noinfo`;
+  export default defineComponent({
+    components: {
+      PageWrapper,
+      [Input.name]: Input,
+      InputTextArea: Input.TextArea,
+      Tag,
+    },
+    setup() {
+      const state = reactive({
+        server: 'ws://localhost:9502/chat',
+        // server: 'wss://swow-ws.jayjay.cn:9502/chat',
+        sendValue: '',
+        recordList: [] as { id: number; time: number; res: string }[],
+      });
 
-export default defineComponent({
-  components: {
-    PageWrapper,
-    UserAddOutlined,
-    useLoadMore
-  },
-  setup() {
-    const value = ref<string>('');
-    const nums = 1;
-    const onSearch = (searchValue: string) => {
-      console.log('use value', searchValue);
-      console.log('or use this.value', value.value);
-    };
-    const randomRange = function (min, max) {
-      let returnStr = "",
-          range = (max ? Math.round(Math.random() * (max - min)) + min : min),
-          charStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const { status, data, send, close, open } = useWebSocket(state.server, {
+        autoReconnect: false,
+        heartbeat: true,
+      });
 
-      for (let i = 0; i < range; i++) {
-        const index = Math.round(Math.random() * (charStr.length - 1));
-        returnStr += charStr.substring(index, index + 1);
+      watchEffect(() => {
+        if (data.value) {
+          try {
+            const res = JSON.parse(data.value);
+            state.recordList.push(res);
+          } catch (error) {
+            state.recordList.push({
+              res: data.value,
+              id: Math.ceil(Math.random() * 1000),
+              time: new Date().getTime(),
+            });
+          }
+        }
+      });
+
+      const getIsOpen = computed(() => status.value === 'OPEN');
+      const getTagColor = computed(() => (getIsOpen.value ? 'success' : 'red'));
+
+      const getList = computed(() => {
+        return [...state.recordList].reverse();
+      });
+
+      function handlerSend() {
+        send(state.sendValue);
+        state.sendValue = '';
       }
-      return returnStr;
-    }
 
-    const {dataList, loading, loadingMore, loadMore} = useLoadMore(getFakeData, {
-      listKey: 'results',
-    });
-    return {
-      value,
-      onSearch,
-      nums,
-      loading,
-      loadingMore,
-      dataList,
-      loadMore,
-      randomRange
-    };
-  },
-});
+      function toggle() {
+        if (getIsOpen.value) {
+          close();
+        } else {
+          open();
+        }
+      }
+      return {
+        status,
+        formatToDateTime,
+        ...toRefs(state),
+        handlerSend,
+        getList,
+        toggle,
+        getIsOpen,
+        getTagColor,
+      };
+    },
+  });
 </script>
-<style scoped>
-.demo-loadmore-list{
-  min-height:350px;
-}
-</style>
