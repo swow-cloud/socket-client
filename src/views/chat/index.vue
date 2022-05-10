@@ -30,22 +30,34 @@
             <template #loadMore>
               <div :style="{ textAlign: 'center', marginTop: '12px', height: '32px', lineHeight: '32px' }">
                 <a-spin v-if="loadingMore"/>
-                <a-button v-else @click="loadMore">loading more</a-button>
+                <a-button v-else @click="loadMore">加载更多</a-button>
               </div>
             </template>
             <template #renderItem="{ item }">
               <a-list-item>
-
-                <a-list-item-meta
-                >
-                  <template #title>
-                    <a href="https://www.antdv.com/">{{ item.name.last }}</a>
-                  </template>
-                  <template #avatar>
-                    <a-avatar src="https://zos.alipayobjects.com/rmsportal/ODTLcjxAfvqbxHnVXCYX.png"/>
-                  </template>
-                </a-list-item-meta>
-                <div>content</div>
+                <div class="flex flex-wrap">
+                  <a-list-item-meta>
+                    <template #title>
+                      <div class="flex flex-nowrap">
+                        <div>
+                          <a href="https://www.antdv.com/">{{ item.name.last }}</a>
+                        </div>
+                        <div style="margin-left:5px">
+                          <a-tag color="pink">BOT</a-tag>
+                        </div>
+                      </div>
+                    </template>
+                    <template #avatar>
+                      <div class="grid md:grid-flow-col">
+                        <a-avatar src="https://zos.alipayobjects.com/rmsportal/ODTLcjxAfvqbxHnVXCYX.png"/>
+                      </div>
+                    </template>
+                  </a-list-item-meta>
+                  <div style="margin-top:15px;" class="grid md:grid-flow-col">
+                    <span class="text-left">[在线]</span>
+                    <span class="truncate">Lorem ipsum{{randomRange(10,36)}} </span>
+                  </div>
+                </div>
               </a-list-item>
             </template>
           </a-list>
@@ -85,6 +97,18 @@ export default defineComponent({
       console.log('use value', searchValue);
       console.log('or use this.value', value.value);
     };
+    const randomRange = function (min, max) {
+      let returnStr = "",
+          range = (max ? Math.round(Math.random() * (max - min)) + min : min),
+          charStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+      for (let i = 0; i < range; i++) {
+        const index = Math.round(Math.random() * (charStr.length - 1));
+        returnStr += charStr.substring(index, index + 1);
+      }
+      return returnStr;
+    }
+
     const {dataList, loading, loadingMore, loadMore} = useLoadMore(getFakeData, {
       listKey: 'results',
     });
@@ -96,6 +120,7 @@ export default defineComponent({
       loadingMore,
       dataList,
       loadMore,
+      randomRange
     };
   },
 });
